@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record_update>
+    <sys_ui_list parent="" relationship="" sys_domain="global" table="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" version="2" view="">
+        <sys_ui_list_element action="INSERT_OR_UPDATE">
+            <average_value>false</average_value>
+            <element>allowed_relationship_types</element>
+            <list_id display_value="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" element="NULL" name="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" parent="NULL" relationship="NULL" sys_domain="global" view="Default view">56e005d2db611300ab89eb41ca9619c0</list_id>
+            <max_value>false</max_value>
+            <min_value>false</min_value>
+            <position>0</position>
+            <sum>false</sum>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-04-20 16:29:06</sys_created_on>
+            <sys_id>dae005d2db611300ab89eb41ca9619c0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-04-20 16:29:06</sys_updated_on>
+        </sys_ui_list_element>
+        <sys_ui_list_element action="INSERT_OR_UPDATE">
+            <average_value>false</average_value>
+            <element>ci_classes</element>
+            <list_id display_value="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" element="NULL" name="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" parent="NULL" relationship="NULL" sys_domain="global" view="Default view">56e005d2db611300ab89eb41ca9619c0</list_id>
+            <max_value>false</max_value>
+            <min_value>false</min_value>
+            <position>1</position>
+            <sum>false</sum>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-04-20 16:29:06</sys_created_on>
+            <sys_id>5ee005d2db611300ab89eb41ca9619c0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-04-20 16:29:06</sys_updated_on>
+        </sys_ui_list_element>
+        <sys_ui_list_element action="INSERT_OR_UPDATE">
+            <average_value>false</average_value>
+            <element>cmdb_editor_configuration</element>
+            <list_id display_value="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" element="NULL" name="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" parent="NULL" relationship="NULL" sys_domain="global" view="Default view">56e005d2db611300ab89eb41ca9619c0</list_id>
+            <max_value>false</max_value>
+            <min_value>false</min_value>
+            <position>2</position>
+            <sum>false</sum>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-04-20 16:29:06</sys_created_on>
+            <sys_id>dee005d2db611300ab89eb41ca9619c0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-04-20 16:29:06</sys_updated_on>
+        </sys_ui_list_element>
+        <sys_ui_list_element action="INSERT_OR_UPDATE">
+            <average_value>false</average_value>
+            <element>relationship_to_configuration_entry</element>
+            <list_id display_value="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" element="NULL" name="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" parent="NULL" relationship="NULL" sys_domain="global" view="Default view">56e005d2db611300ab89eb41ca9619c0</list_id>
+            <max_value>false</max_value>
+            <min_value>false</min_value>
+            <position>3</position>
+            <sum>false</sum>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-04-20 16:29:06</sys_created_on>
+            <sys_id>52e005d2db611300ab89eb41ca9619c1</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-04-20 16:29:06</sys_updated_on>
+        </sys_ui_list_element>
+        <sys_ui_list action="INSERT_OR_UPDATE">
+            <average_value>false</average_value>
+            <element/>
+            <max_value>false</max_value>
+            <min_value>false</min_value>
+            <name>x_60289_cmdb_edito_cmdb_editor_allowed_relationship</name>
+            <parent/>
+            <position/>
+            <relationship/>
+            <sum>false</sum>
+            <sys_class_name>sys_ui_list</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-04-20 16:29:06</sys_created_on>
+            <sys_domain>global</sys_domain>
+            <sys_domain_path>/</sys_domain_path>
+            <sys_id>56e005d2db611300ab89eb41ca9619c0</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>x_60289_cmdb_edito_cmdb_editor_allowed_relationship</sys_name>
+            <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
+            <sys_update_name>sys_ui_list_x_60289_cmdb_edito_cmdb_editor_allowed_relationship_null</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-04-20 16:29:06</sys_updated_on>
+            <sys_user/>
+            <view display_value="Default view" name="NULL">Default view</view>
+            <view_name/>
+        </sys_ui_list>
+    </sys_ui_list>
+</record_update>
