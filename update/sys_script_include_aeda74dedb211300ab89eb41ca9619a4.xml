@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update table="sys_script_include">
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
     <sys_script_include action="INSERT_OR_UPDATE">
         <access>package_private</access>
         <active>true</active>
@@ -22,27 +21,246 @@ CMDBEditor.prototype = {
 
 		this.userFieldList = 'user_fields_with_edit_rights';
 		this.groupFieldList = 'group_fields_with_edit_rights';
+
+		this._userIsAdmin = gs.hasRole('x_60289_cmdb_edito.cmdb_admin') || gs.hasRole('admin');
 	},
 
 	type: 'CMDBEditor',
 
+	getClassFieldQuery: function() {
+		if (this._userIsAdmin)
+			return '';
+
+		var gr = new GlideRecord(this.cmdbConfigurationTableName), retArr = [];
+		gr.query();
+		while (gr.next()) {
+			if (this.getEditableRecords(this.getConfigurationObject(gr), true))
+				retArr.push(gr.sys_id.toString());			
+		}
+
+		if (retArr.length > 0) {
+			return 'sys_idIN' + retArr.join(',');
+		}
+		else
+			return 'sys_id=-1';
+	},
+
+	getActiveStagedChangeForUser: function(gr) {
+		if (!gr && this._gr)
+			gr = this._gr;
+		else
+			return false;
+
+		var grStaged = new GlideRecord(this.cmdbStagedChangeTableName);
+		grStaged.addQuery('configuration_item', this._gr.sys_id.toString());
+		grStaged.addQuery('submitter', gs.getUser().getID());
+		grStaged.addQuery('approval', 'IN', 'requested,not_requested');
+		grStaged.query();
+
+		return (grStaged.next()) ? grStaged : false;
+	},
+
+	getAllActiveChangeCIsForUser: function(userSys) {
+		if (!userSys)
+			return [];
+
+		var grStaged = new GlideRecord(this.cmdbStagedChangeTableName);
+		grStaged.addQuery('submitter', userSys);
+		grStaged.addQuery('approval', 'IN', 'requested,not_requested');
+		grStaged.addNullQuery('completed_on');
+		grStaged.query();
+
+		var retArr = [];
+		while(grStaged.next())
+			retArr.push(grStaged.configuration_item.toString());
+
+		return retArr;
+	},
+
+	_getRecordFromSysAndTable: function(sys, table) {
+		if (!sys || !/\w{32}/.test(sys))
+			return false;
+		if (!table)
+			return false;
+
+		var gr = new GlideRecord(table);
+		if (gr.get(sys))
+			return gr;
+
+		return false;
+	},
+
+	canEditInPortal: function(sys, table) {
+		if (this.getActiveStagedChangeForUser())
+			return false;
+
+		if (this._userIsAdmin)
+			return true;
+
+		var x, userSys = gs.getUserID(), userGroups = this.getUsersGroups(userSys), gr;
+		if (sys && /\w{32}/.test(sys) && table && !this._gr)
+			gr = this._getRecordFromSysAndTable(sys, table);
+		else if (this._gr)
+			gr = this._gr;
+		else
+			return false;
+
+		var grConfig = new GlideRecord(this.cmdbConfigurationTableName);
+		grConfig.addQuery('ci_class.name', gr.getTableName());
+		grConfig.query();
+
+		while (grConfig.next()) {
+			var userFields = this.buildUserFields(grConfig, this.userFieldList);
+			var groupFields = this.buildUserFields(grConfig, this.groupFieldList);
+			if ((!userFields || userFields.length == 0) && (!groupFields || groupFields.length == 0))
+				return true;
+
+			for (x in userFields) {
+				if (!!~(gr[userFields[x]] + '').indexOf(userSys))
+					return true;
+			}
+
+			for (x in groupFields) {
+				if (!!~userGroups.indexOf(gr[groupFields[x]] + ''))
+					return true;
+			}
+		}
+
+		return false;
+	},
+
 	commitChanges: function(sys) {
-		var gr = new GlideRecord(this.getStagedChangeTable());
-		if (gr.get(sys)) {
-			var grCI = new GlideRecord(this.getTableNameFromSys(gr.cmdb_editor_configuration.ci_class.toString()));
-			if (grCI.get(gr.configuration_item.toString())) {
-				var parsedChanges = JSON.parse(gr.staged_changes.toString());
-				if (parsedChanges) {
-					var editableSelected = parsedChanges.editableSelected;
-					if (editableSelected) {
-						var editableColumns = editableSelected.editableColumns;
-						for (var x in editableColumns) {
-							grCI[editableColumns[x].name] = editableColumns[x].value;
-						}
-						grCI.update();
+		var gr;
+		if (/\w{32}/.test(sys)) {
+			gr = new GlideRecord(this.getStagedChangeTable());
+			if (!gr.get(sys))
+				return false;
+		}
+		else if (typeof sys == 'object' && sys.getTableName)
+			gr = sys;
+
+		var grCI = new GlideRecord(this.getTableNameFromSys(gr.cmdb_editor_configuration.ci_class.toString()));
+		if (grCI.get(gr.configuration_item.toString())) {
+			var parsedChanges = JSON.parse(gr.staged_changes.toString());
+			if (parsedChanges) {
+				var editableSelected = parsedChanges.editableSelected;
+				if (editableSelected) {
+					var editableColumns = editableSelected.editableColumns;
+					var editableRelationships = editableSelected.editableRelationships;
+					for (var x in editableColumns) {
+						grCI[editableColumns[x].name] = editableColumns[x].value;
 					}
+					//for (var y in editableRelationships) {
+					this._updateRelationship(editableRelationships, grCI.sys_id.toString());
+					//}
+					grCI.update();
+					gr.approval = 'approved';
+					gr.completed_on = new GlideDateTime();
+					gr.update();
 				}
 			}
+		}
+	},
+
+	_addRelationship: function(parent, child, type) {
+		if (!parent || !child || !type)
+			return false;
+
+		var grRel = new GlideRecord('cmdb_rel_ci');
+		grRel.addQuery('parent', parent);
+		grRel.addQuery('child', child);
+		grRel.addQuery('type', type);
+		grRel.query();
+
+		if (grRel.hasNext())
+			return true;
+		else {
+			grRel.initialize();
+			grRel.parent = parent;
+			grRel.child = child;
+			grRel.type = type;
+			return grRel.insert();
+		}
+	},
+
+	_removeRelationship: function(parent, child, type) {
+		if (!parent || !child || !type)
+			return false;
+
+		var grRel = new GlideRecord('cmdb_rel_ci');
+		grRel.addQuery('parent', parent);
+		grRel.addQuery('child', child);
+		grRel.addQuery('type', type);
+		grRel.query();
+
+		if (grRel.hasNext())
+			grRel.deleteMultiple();
+	},
+
+	_updateRelationship: function (relOb, ciSys) {
+		if (!relOb || !ciSys)
+			return false;
+
+		var x =0, y = 0, tmpRelOb;
+		// update parents
+		for (x in relOb.parent) {
+			for (y in relOb.parent[x]) {
+				if (relOb.parent[x][y].sys_id) {
+					tmpRelOb = relOb.parent[x][y];
+					if (relOb.parent[x][y].updated) {
+						this._commitUpdatedRelationship('parent', tmpRelOb.old_related_item_sys, tmpRelOb.related_item_sys,
+														tmpRelOb.old_sys_id, tmpRelOb.sys_id, tmpRelOb.relType);
+					}
+					else if (tmpRelOb.added)
+						this._addRelationship(ciSys, tmpRelOb.sys_id, tmpRelOb.relType);
+					else if (tmpRelOb.deleted)
+						this._removeRelationship(ciSys, tmpRelOb.sys_id, tmpRelOb.relType);
+				}
+			}
+		}
+
+		x = 0;
+		y = 0;
+
+		// update children
+		for (x in relOb.child) {
+			for (y in relOb.child[x]) {
+				if (relOb.child[x][y].sys_id) {
+					tmpRelOb = relOb.child[x][y];
+					if (tmpRelOb.updated) {
+						this._commitUpdatedRelationship('child', tmpRelOb.old_related_item_sys, tmpRelOb.related_item_sys,
+														tmpRelOb.old_sys_id, tmpRelOb.sys_id, tmpRelOb.relType);
+					}
+					else if (tmpRelOb.added)
+						this._addRelationship(tmpRelOb.sys_id, ciSys, tmpRelOb.relType);
+					else if (tmpRelOb.deleted)
+						this._removeRelationship(tmpRelOb.sys_id, ciSys, tmpRelOb.relType);
+				}
+			}
+		}
+	},
+
+	_commitUpdatedRelationship: function(type, oldRelatedItem, newRelatedItem, oldValue, newValue, relType) {
+		if (!type || !oldRelatedItem || ! newRelatedItem || !oldValue || !newValue)
+			return false;
+
+		var grRel = new GlideRecord('cmdb_rel_ci');
+		grRel.addQuery(type, oldRelatedItem);
+
+		if (type == 'parent')
+			grRel.addQuery('child', oldValue);
+		else
+			grRel.addQuery('parent', oldValue);
+
+		grRel.query();
+		if (grRel.next()) {
+			grRel[type] = newRelatedItem;
+			if (type == 'parent')
+				grRel.child = newValue;
+			else
+				grRel.parent = newValue;
+			grRel.type = relType;
+			grRel.update();
 		}
 	},
 
@@ -66,7 +284,7 @@ CMDBEditor.prototype = {
 				gr.state = 'not_required';
 				gr.update();
 			}
-			
+
 			var grStaged = new GlideRecord(this.getStagedChangeTable());
 			if (grStaged.get(sys)) {
 				grStaged.approval = (approved) ? 'approved' : 'rejected';
@@ -86,15 +304,17 @@ CMDBEditor.prototype = {
 	getExistingRecordsForCI: function(sys) {
 		var name = this.getStagedChangeTable();
 		var grStaging = new GlideRecord(name), retArr = [];
-		grStaging.addQuery('committed', 'false');
-		grStaging.addQuery('approval', 'IN', 'pending,not_requested');
+		//grStaging.addQuery('committed', 'false');
+		//grStaging.addQuery('approval', 'IN', 'pending,not_requested');
+		grStaging.addNullQuery('completed_on');
 		grStaging.addQuery('configuration_item', sys);
 		grStaging.query();
 		while (grStaging.next()) {
 			var tmp = {};
-			tmp.submittedDate = grStaging.sys_created_on.getDisplayValue();
+			tmp.submittedDate = grStaging.sys_updated_on.getDisplayValue();
 			tmp.submitter = grStaging.submitter.getDisplayValue();
 			tmp.sys_id = grStaging.sys_id.toString();
+			tmp.state = (grStaging.committed.toString() == 'true') ? 'Committed by' : 'Drafted by';
 			retArr.push(tmp);
 		}
 
@@ -102,11 +322,23 @@ CMDBEditor.prototype = {
 	},
 
 	getConfigurationSysForClassName: function(className) {
-		var gr = new GlideRecord('sys_db_object');
+		var gr = new GlideRecord('sys_db_object'), grConf;
 		if (gr.get('name', className)) {
-			var grConf = new GlideRecord(this.getBaseConfigTable());
+			grConf = new GlideRecord(this.getBaseConfigTable());
 			if (grConf.get('ci_class', gr.sys_id)) {
 				return grConf.sys_id.toString();
+			}
+			else {
+				var gr2 = new GlideRecord('sys_db_object');
+				var parents = this.getAllParentTables(className);
+				parents = parents.reverse();
+				gr2.addQuery('name', 'IN', parents);
+				gr2.query();
+				while (gr2.next()) {
+					grConf = new GlideRecord(this.getBaseConfigTable());
+					if (grConf.get('ci_class', gr2.sys_id))
+						return grConf.sys_id.toString();
+				}
 			}
 		}
 
@@ -123,9 +355,11 @@ CMDBEditor.prototype = {
 				if (gr.get(existingRecord)) {
 					gr.staged_changes = jsonChanges;
 					gr.committed = boolCommitted;
-					if (gr.approval.toString() == 'not_requested' && boolCommitted)
-						if (this.sendForApprovals(gr))
-							this.createApprovals(gr);
+					if (this._userIsAdmin)
+						this.commitChanges(gr);
+					else if (gr.approval.toString() == 'not_requested' && boolCommitted)
+						this.sendForApprovals(gr);
+
 					successful = gr.update();
 				}
 			}
@@ -142,17 +376,16 @@ CMDBEditor.prototype = {
 				successful = gr.insert();
 
 				if (boolCommitted) {
-					var gr2 = new GlideRecord(this.getStagedChangeTable());
-					if(gr2.get(successful)) {
-						if (gr2.approval.toString() == 'not_requested') {
-							if (this.sendForApprovals(gr2)) {
-								this.createApprovals(gr2);
-								gr2.approval = 'pending';
-							}
-						}
+					if (this._userIsAdmin)
+						this.commitChanges(successful);
+					else {
+						var gr2 = new GlideRecord(this.getStagedChangeTable());
+						if(gr2.get(successful))
+							if (gr2.approval.toString() == 'not_requested')
+								this.sendForApprovals(gr2);
 					}
 				}
-			}			
+			}		
 
 			return successful;
 		}
@@ -166,7 +399,7 @@ CMDBEditor.prototype = {
 		if (!grStaged)
 			return false;
 
-		var userSysArr = [], name;
+		var userSysArr = [], name, currentUserSys = gs.getUserID();
 
 		var groups = grStaged.cmdb_editor_configuration.group_fields_with_approval_rights.toString();
 		var users  = grStaged.cmdb_editor_configuration.user_fields_with_approval_rights.toString();
@@ -186,7 +419,7 @@ CMDBEditor.prototype = {
 			grMember.addQuery('user.active', true);
 			grMember.query();
 			while(grMember.next())
-				if (userSysArr.indexOf(grMember.sys_id.toString()) == -1)
+				if (userSysArr.indexOf(grMember.sys_id.toString()) == -1 && grMember.sys_id.toString() != currentUserSys)
 					userSysArr.push(grMember.sys_id.toString());
 		}
 
@@ -196,33 +429,39 @@ CMDBEditor.prototype = {
 				for (var x in users) {
 					name = this.getFieldNameFromSys(users[x]);
 					if (grStaged.configuration_item[name])
-						if (userSysArr.indexOf(grStaged.configuration_item[name].toString()) == -1)
+						if (userSysArr.indexOf(grStaged.configuration_item[name].toString()) == -1 && grStaged.configuration_item[name].toString() != currentUserSys)
 							userSysArr.push(grStaged.configuration_item[name].toString());
 				}
 			}
 			else {
 				name = this.getFieldNameFromSys(users);
 				if (grStaged.configuration_item[name])
-					if (userSysArr.indexOf(grStaged.configuration_item[name].toString()) == -1)
+					if (userSysArr.indexOf(grStaged.configuration_item[name].toString()) == -1 && grStaged.configuration_item[name].toString() != currentUserSys)
 						userSysArr.push(grStaged.configuration_item[name].toString());
 			}
 		}
 
 		for (var y in userSysArr) {
-			var grApp = new GlideRecord(this.approvalTable);
-			grApp.initialize();
-			grApp.source_table = this.getStagedChangeTable();
-			grApp.document_id = grStaged.sys_id.toString();
-			grApp.approver = userSysArr[y];
-			grApp.state = 'requested';
-			grApp.insert();
+			if (userSysArr[y] != currentUserSys) {
+				var grApp = new GlideRecord(this.approvalTable);
+				grApp.initialize();
+				grApp.source_table = this.getStagedChangeTable();
+				grApp.document_id = grStaged.sys_id.toString();
+				grApp.approver = userSysArr[y];
+				grApp.state = 'requested';
+				grApp.insert();
+			}
 		}
 
 		if (userSysArr) {
 			grStaged.approval = 'requested';
 			grStaged.update();
+			return true;
 		}
+		else
+			this.commitChanges(grStaged);
 
+		return false;
 	},
 
 	areApprovalsNeeded: function(grStaged) {
@@ -238,9 +477,9 @@ CMDBEditor.prototype = {
 			return false;
 
 		if (this.areApprovalsNeeded(grStaged))
-			this.createApprovals(grStaged);
+			return this.createApprovals(grStaged);
 		else
-			return false;
+			this.commitChanges(grStaged);
 	},
 
 	getBaseConfigTable: function() {
@@ -267,6 +506,34 @@ CMDBEditor.prototype = {
 		}
 	},
 
+	getAllChildTables: function(baseTable, retArr) {
+		if (!baseTable)
+			return [];
+
+		if (!retArr)
+			retArr = [];
+
+		if (!~retArr.indexOf(baseTable))
+			retArr.push(baseTable);
+
+		var curTableGR = this.getChildTables(baseTable);
+		if (curTableGR && curTableGR.hasNext())
+			while(curTableGR.next())		
+				this.getAllChildTables(curTableGR.name.toString(), retArr);
+
+		return retArr;
+	},
+
+	getChildTables: function(tbl) {
+		if (!tbl)
+			return false;
+
+		var grTbl = new GlideRecord('sys_db_object');
+		grTbl.addQuery('super_class.name', tbl);
+		grTbl.query();
+		return grTbl;
+	},
+
 	tableIsParentOf: function(parTable, curTable) {
 		var retBool = false;
 		var curTableGR = this.getTableFromName(curTable);
@@ -288,6 +555,7 @@ CMDBEditor.prototype = {
 		grChoice.addQuery('name', tableName);
 		grChoice.addQuery('element', fldName);
 		grChoice.addQuery('inactive', 'false');
+		grChoice.addQuery('language', gs.getSession().getLanguage());
 		grChoice.query();
 
 		if (grChoice.hasNext()) {
@@ -308,6 +576,7 @@ CMDBEditor.prototype = {
 			grChoice.addQuery('name', 'IN', parentTablesArr.join(','));
 			grChoice.addQuery('element', fldName);
 			grChoice.addQuery('inactive', 'false');
+			grChoice.addQuery('language', gs.getSession().getLanguage());
 			grChoice.query();
 
 			while(grChoice.next()) {
@@ -331,7 +600,18 @@ CMDBEditor.prototype = {
 			return grDict.element.toString();
 		}
 		else
-			return '';
+			return (!!~tableName.indexOf('cmdb')) ? 'name' : this._returnDisplayName(tableName);
+	},
+
+	_returnDisplayName: function(tbl) {
+		var retStr = '';
+		switch(tbl) {
+			case 'sys_user_group':
+				retStr = 'name';
+				break;
+		}
+
+		return retStr;
 	},
 
 	getDisplayType: function(ob) {
@@ -534,6 +814,7 @@ CMDBEditor.prototype = {
 		ob.availableRelationships = this.getAvailableRelationships(gr);
 		ob.userFields = this.buildUserFields(gr, this.userFieldList);
 		ob.groupFields = this.buildUserFields(gr, this.groupFieldList);
+		ob.getChildren = gr.allow_extended_tables.toString() == 'true';
 		return ob;
 	},
 
@@ -548,47 +829,71 @@ CMDBEditor.prototype = {
 		return retArr;
 	},
 
-	getEditableRecords: function(selectedClass) {
+	getEditableRecords: function(selectedClass, noReturn, userSysID) {
 		if (!selectedClass || !selectedClass.className)
 			return [];
 
-		var userSys = gs.getUserID(), userGroups = this.getUsersGroups(userSys), x, retArr = [];
+		var userSys = userSysID || gs.getUserID(), x, retArr = [], userGroups = this.getUsersGroups(userSys);
 		if (userGroups) {
 			if (userGroups.length > 1)
 				userGroups = userGroups.join(',');
 			else
 				userGroups = userGroups[0];
 		}
+
+		//install_statusNOT IN1
 		var grClass = new GlideRecord(selectedClass.className), userQ = '', groupQ = '', fullQ = '';
-		if (selectedClass.userFields) {
-			for (x = 0; x < selectedClass.userFields.length; x++) {
-				userQ += selectedClass.userFields[x] + '=' + userSys;
-				if (selectedClass.userFields[x+1])
-					userQ += '^OR';
+		var activeChanges = this.getAllActiveChangeCIsForUser(userSys);
+		if (activeChanges && activeChanges.length > 0)
+			activeChanges = activeChanges.join(',');
+
+		if (!this._userIsAdmin) {
+			if (selectedClass.userFields) {
+				for (x = 0; x < selectedClass.userFields.length; x++) {
+					userQ += selectedClass.userFields[x] + '=' + userSys;
+					if (selectedClass.userFields[x+1])
+						userQ += '^OR';
+				}
+
+				fullQ = userQ;
+				if (fullQ && activeChanges)
+					fullQ += '^sys_idNOT IN' + activeChanges;
 			}
-			fullQ = userQ;
-		}
-		if (selectedClass.groupFields && userGroups) {
-			fullQ += '^NQ';
-			for (x = 0; x < selectedClass.groupFields.length; x++) {
-				gs.info(selectedClass.groupFields[x] + '::' + x);
-				groupQ += selectedClass.groupFields[x] + '.sys_idIN' + userGroups;
+			if (selectedClass.groupFields && userGroups) {
+				if (fullQ)
+					fullQ += '^NQ';
+
+				for (x = 0; x < selectedClass.groupFields.length; x++) {
+					groupQ += selectedClass.groupFields[x] + '.sys_idIN' + userGroups;
+					if (selectedClass.groupFields[x+1])
+						groupQ += '^OR';
+				}
+
+				fullQ += groupQ;
+				if (activeChanges)
+					fullQ += '^sys_idNOT IN' + activeChanges;
 			}
-			fullQ += groupQ;
+
+			grClass.addEncodedQuery(fullQ);
 		}
 
-		grClass.addEncodedQuery(fullQ);
+		if (!selectedClass.getChildren)
+			grClass.addQuery('sys_class_name', selectedClass.className);
+
 		grClass.query();
-		while (grClass.next()) {
-			retArr.push(grClass.sys_id.toString());
-		}
+		if (noReturn)
+			return grClass.hasNext();
 
-		return retArr;
+		//while (grClass.next()) {
+		//	retArr.push(grClass.sys_id.toString());
+		//}
+
+		return grClass.getEncodedQuery();
 	},
 
 	buildRelationshipObject: function(relFramework, sys_id) {
 		var relTypes = [], classes = [], relArr = [];
-		var x = 0, maxL = 0;
+		var x = 0, maxL = 0, q;
 		if (relFramework.relationships && relFramework.classes) {
 			maxL = relFramework.relationships.length;
 			for (x; x < maxL; x++) {
@@ -601,17 +906,27 @@ CMDBEditor.prototype = {
 				classes.push(relFramework.classes[x].name);
 			}
 
+			if (!classes || !relTypes)
+				return relArr;
+
 			var grRel = new GlideRecord('cmdb_rel_ci');
 			if (relFramework.parentChild == 'parent') {
-				grRel.addQuery('parent.sys_class_name', 'IN', classes.join(','));
-				grRel.addQuery('type.sys_id', 'IN', relTypes.join(','));
+				q = grRel.addQuery('parent.sys_class_name', classes[0]);
+				for (x = 1; x < classes.length; x++)
+					q.addOrCondition('parent.sys_class_name', classes[x]);
+
+				grRel.addQuery('type', 'IN', relTypes.join(','));
 				grRel.addQuery('child', sys_id);
 			}
 			else {
-				grRel.addQuery('child.sys_class_name', 'IN', classes.join(','));
-				grRel.addQuery('type.sys_id', 'IN', relTypes.join(','));
+				q = grRel.addQuery('child.sys_class_name', classes[0]);
+				for (x = 1; x < classes.length; x++)
+					q.addOrCondition('child.sys_class_name', classes[x]);
+
+				grRel.addQuery('type', 'IN', relTypes.join(','));
 				grRel.addQuery('parent', sys_id);
 			}
+
 			grRel.query();
 			while(grRel.next()) {
 				var tmpOb = {};
@@ -632,10 +947,25 @@ CMDBEditor.prototype = {
 					tmpOb.relName = grRel.type.getDisplayValue();
 				}
 
+				if (tmpOb && tmpOb.className) {
+					if (this.canEditInPortal(tmpOb.sys_id, tmpOb.className)) {
+						tmpOb.url = 'cmdb_editor?id=editor_home&class_name=' + tmpOb.className;
+						tmpOb.url += '&sys_id=' + tmpOb.sys_id;
+					}
+				}
+
 				relArr.push(tmpOb);
 			}
 		}
 		return relArr;
+	},
+
+	_isEditable: function(className) {
+		var grConfig = new GlideRecord(this.cmdbConfigurationTableName);
+		grConfig.addQuery('ci_class.name', className);
+		grConfig.query();
+
+		return grConfig.hasNext();
 	},
 
 	getEditableRelationships: function(gr, relArr, thisClass) {
@@ -663,11 +993,15 @@ CMDBEditor.prototype = {
 		ob.editableColumns = this.getAvailableFields(gr, tmpFldArr, thisClass.className);
 		ob.editableRelationships = this.getEditableRelationships(gr, tmpRelArr, thisClass);
 		ob.displayName = gr.getDisplayValue();
+		ob.value = gr.sys_id.toString();
 
 		return ob;
 	},
 
 	getEditableSelection: function(sys, thisClass) {
+		if (!thisClass || !thisClass.className)
+			return {};
+
 		var gr = new GlideRecord(thisClass.className);
 		if (gr.get(sys)) {
 			return this.buildEditableCI(gr, thisClass);
@@ -689,11 +1023,18 @@ CMDBEditor.prototype = {
 		if (!this._gr || !this._gr.ci_class)
 			return '';
 
-		var thisClass = this._gr.ci_class.toString(), returnArr = [], grDict = new GlideRecord('sys_dictionary');
+		var thisClass = this._gr.ci_class.toString(), returnArr = [], grDict = new GlideRecord('sys_dictionary'), allTables = [], chkArray = [];
 
 		thisClass = this.getTableNameFromSys(thisClass);
+		this.getAllParentTables(thisClass, allTables);
+		allTables.push(thisClass);
 
-		grDict.addQuery('name', thisClass);
+		// 		if (this._gr.allow_extended_tables.toString() == 'true')
+		// 			allTables = this.getAllChildTables(thisClass, allTables); // table names
+		// 		else if (!~allTables.indexOf(thisClass))
+		// 			allTables.push(thisClass);
+
+		grDict.addQuery('name', 'IN', allTables.join(','));
 		if (fieldRefTable) {
 			//grDict.addQuery('reference', this.getTableSysFromName(fieldRefTable));
 			grDict.addQuery('reference', fieldRefTable);
@@ -702,7 +1043,10 @@ CMDBEditor.prototype = {
 		grDict.query();
 
 		while (grDict.next()) {
-			returnArr.push(grDict.sys_id.toString());
+			if (!~chkArray.indexOf(grDict.element.toString())) {
+				returnArr.push(grDict.sys_id.toString());
+				chkArray.push(grDict.element.toString());
+			}
 		}
 
 		return returnArr.join(',');
@@ -739,13 +1083,13 @@ CMDBEditor.prototype = {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2018-04-20 16:07:04</sys_created_on>
         <sys_id>aeda74dedb211300ab89eb41ca9619a4</sys_id>
-        <sys_mod_count>90</sys_mod_count>
+        <sys_mod_count>171</sys_mod_count>
         <sys_name>CMDBEditor</sys_name>
         <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
         <sys_policy>read</sys_policy>
         <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
         <sys_update_name>sys_script_include_aeda74dedb211300ab89eb41ca9619a4</sys_update_name>
-        <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2018-04-27 20:42:48</sys_updated_on>
+        <sys_updated_by>T13959</sys_updated_by>
+        <sys_updated_on>2018-12-19 05:37:21</sys_updated_on>
     </sys_script_include>
 </record_update>

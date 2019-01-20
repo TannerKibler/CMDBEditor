@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update table="sp_ng_template">
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_ng_template">
     <sp_ng_template action="INSERT_OR_UPDATE">
         <id>newRelationshipModal</id>
         <sp_widget display_value="CMDB Editor">b39e859adb611300ab89eb41ca9619ea</sp_widget>
@@ -7,14 +6,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2018-04-25 19:23:10</sys_created_on>
         <sys_id>16289bbbdba11300ab89eb41ca96191f</sys_id>
-        <sys_mod_count>25</sys_mod_count>
+        <sys_mod_count>34</sys_mod_count>
         <sys_name>newRelationshipModal</sys_name>
         <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
         <sys_policy/>
         <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
         <sys_update_name>sp_ng_template_16289bbbdba11300ab89eb41ca96191f</sys_update_name>
-        <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2018-04-26 17:54:56</sys_updated_on>
+        <sys_updated_by>T13959</sys_updated_by>
+        <sys_updated_on>2018-12-06 15:43:03</sys_updated_on>
         <template><![CDATA[<div class="panel panel-primary">
   <div class="panel-heading">
     <h2 class="panel-title">${Adding a {{newRelType}} relationship to {{ciName}}}</h2>
@@ -30,6 +29,17 @@
                               value-field="'name'"
                               search-fields="'label'"
                               default-query="newRelClassQuery"
+                              page-size="50">
+            </sn-record-picker>
+        </div>
+        <div class="col-xs-12 col-sm-4" ng-if="updatingRelationship">
+          <label for="updating_relationship" class="fieldLabel">{{parentChildLabel}}</label>
+          <sn-record-picker id="updating_relationship" field="updatedRelationship"
+                              table="selectedClassTable"
+                              display-field="'name'"
+                              value-field="'sys_id'"
+                              search-fields="'name'"
+                              default-query=""
                               page-size="50">
             </sn-record-picker>
         </div>
@@ -55,7 +65,7 @@
                               display-field="'name'"
                               value-field="'sys_id'"
                               search-fields="'name'"
-                              default-query=""
+                              default-query="newRelationshipCIQuery"
                               page-size="50">
             </sn-record-picker>
         </div>
@@ -67,8 +77,11 @@
       <button class="btn btn-lg btn-warning pull-left" ng-click="closeModal()">
         ${Cancel}
       </button>
-      <button class="btn btn-lg btn-success pull-right" ng-disabled="checkIfNewRelFormReady()" ng-click="addThisRelationship()">
+      <button ng-if="!updatingRelationship" class="btn btn-lg btn-success pull-right" ng-disabled="checkIfNewRelFormReady()" ng-click="addThisRelationship()">
         ${Add Relationship}
+      </button>
+      <button ng-if="updatingRelationship" class="btn btn-lg btn-success pull-right" ng-disabled="checkIfNewRelFormReady()" ng-click="updateThisRelationship()">
+        ${Update Relationship}
       </button>
     </div>
   </div>

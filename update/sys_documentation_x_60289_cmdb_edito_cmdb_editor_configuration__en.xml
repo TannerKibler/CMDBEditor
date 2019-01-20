@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update>
+<?xml version="1.0" encoding="UTF-8"?><record_update>
     <sys_documentation element="" label="CMDB Editor Configuration" language="en" table="x_60289_cmdb_edito_cmdb_editor_configuration">
         <sys_documentation action="INSERT_OR_UPDATE">
             <element/>

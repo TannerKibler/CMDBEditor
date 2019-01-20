@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update table="sp_instance_menu">
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_instance_menu">
     <sp_instance_menu action="INSERT_OR_UPDATE">
         <active>true</active>
         <class_name/>
@@ -17,14 +16,14 @@
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2018-04-27 05:17:18</sys_created_on>
         <sys_id>4c3a2614dbb51300ab89eb41ca961945</sys_id>
-        <sys_mod_count>0</sys_mod_count>
+        <sys_mod_count>2</sys_mod_count>
         <sys_name>CMDB Editor Menu</sys_name>
         <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
         <sys_policy/>
         <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
         <sys_update_name>sp_instance_menu_4c3a2614dbb51300ab89eb41ca961945</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2018-04-27 05:17:18</sys_updated_on>
+        <sys_updated_on>2018-10-25 06:10:11</sys_updated_on>
         <title>CMDB Editor Menu</title>
         <url/>
         <widget_parameters/>

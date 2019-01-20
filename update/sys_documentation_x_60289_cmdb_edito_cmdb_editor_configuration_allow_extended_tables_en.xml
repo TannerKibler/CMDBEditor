@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_documentation element="allow_extended_tables" label="Allow Extended Tables" language="en" table="x_60289_cmdb_edito_cmdb_editor_configuration">
+        <sys_documentation action="INSERT_OR_UPDATE">
+            <element>allow_extended_tables</element>
+            <help/>
+            <hint/>
+            <label>Allow Extended Tables</label>
+            <language>en</language>
+            <name>x_60289_cmdb_edito_cmdb_editor_configuration</name>
+            <plural>Allow Extended Tables</plural>
+            <sys_class_name>sys_documentation</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2018-10-11 13:41:41</sys_created_on>
+            <sys_id>1e3f18da37012300e3168cf6c3990e52</sys_id>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>Allow Extended Tables</sys_name>
+            <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
+            <sys_update_name>sys_documentation_x_60289_cmdb_edito_cmdb_editor_configuration_allow_extended_tables_en</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2018-10-11 13:41:41</sys_updated_on>
+            <url/>
+            <url_target/>
+        </sys_documentation>
+    </sys_documentation>
+</record_update>

@@ -1,11 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update table="sp_widget">
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
     <sp_widget action="INSERT_OR_UPDATE">
-        <category>custom</category>
+        <category/>
         <client_script><![CDATA[function($scope, $rootScope, $uibModal, $window, $timeout) {
 	/* widget controller */
 	var c = this;
-	
+
 	$scope.formDisabled = false;
 	$scope.existingRecord = c.data.existingRecord;
 	$scope.committed = c.data.committed;
@@ -16,7 +15,9 @@
 	$scope.submitterName = c.data.submitterName;
 	$scope.currentUser = c.data.currentUser;
 	$scope.isCurrentUserAnApprover = c.data.isCurrentUserAnApprover;
-	
+	$scope.filterOb = {'children': '', 'parents': ''};
+	$scope.userIsAdmin = c.data.isUserAdmin;
+
 	$scope.existingRecordsForCI = c.data.existingRecordsForCI;
 
 	var curPageID = c.data.pageID;
@@ -27,7 +28,7 @@
 
 	if (!$scope.notSaved && $scope.submitter != $scope.currentUser && !$scope.committed)
 		$scope.formDisabled = true;
-	
+
 	if ($scope.isCurrentUserAnApprover && $scope.approved == 'approved' || $scope.approved == 'rejected')
 		$scope.formDisabled = true;
 
@@ -51,17 +52,22 @@
 	$scope.newRelationshipCI.value = '';
 	$scope.newRelationshipCI.name	= 'new_relationship_ci';
 
+	$scope.updatedRelationship = {};
+	$scope.updatedRelationship.displayValue = "CI";
+	$scope.updatedRelationship.value = '';
+	$scope.updatedRelationship.name = 'updating_relationship';
+
 	$scope.classFieldQuery = c.data.classFieldQuery || c.options.classFieldQuery || '';
 	$scope.cmdbConfigurationTableName = c.data.cmdbConfigurationTableName;
 	$scope.flagChangesDisplayLabel = 'Show Changes';
-	$rootScope.showChanges = $scope.committed;
+	$rootScope.showChanges = $scope.committed || c.data.existingRecord;
 
 	var previouslySelectedCI;
 
 	function isXSScreenSize() {
 		return $window.matchMedia('(max-width: 767px)').matches;
 	}
-	
+
 	$scope.returnURL = function(id) {
 		if (curPortalID && curPageID && id)
 			return '/' + curPortalID + '?id=' + curPageID + '&staged_change=' + id;
@@ -74,6 +80,53 @@
 	function updateURL(id) {
 		if (curPortalID && curPageID && id)
 			$window.location.assign('/' + curPortalID + '?id=' + curPageID + '&staged_change=' + id);
+	}
+
+	$scope.openNew = function(relOb) {
+		if (relOb.url && !relOb.updated)
+			window.open(relOb.url, '_blank');
+	}
+
+	$scope.filterChildren = function(rel) {
+		var disp, cls, relName, val, name, name2;
+		if (!rel || !$scope.filterOb.children)
+			return true;
+
+		if (rel[0])
+			rel = rel[0];
+
+				disp = rel.displayValue.toLowerCase();
+		cls = rel.classDisplay.toLowerCase();
+		relName = rel.relName.toLowerCase();
+		val = $scope.filterOb.parents.toLowerCase();
+		
+		if (!rel.updated)
+			name  = ($scope.editableRecordField && $scope.editableRecordField.displayValue) ? $scope.editableRecordField.displayValue.toLowerCase() : '';
+		else
+			name = (rel.related_item_name) ? rel.related_item_name.toLowerCase() : '';
+		
+		return (!!~name.indexOf(val) || !!~disp.indexOf(val) || !!~cls.indexOf(val) || !!~relName.indexOf(val));
+	}
+
+	$scope.filterParents = function(rel) {
+		if (!rel || !$scope.filterOb.parents)
+			return true;
+
+		if (rel[0])
+			rel = rel[0];
+
+		var disp, cls, relName, val, name, name2;
+		disp = rel.displayValue.toLowerCase();
+		cls = rel.classDisplay.toLowerCase();
+		relName = rel.relName.toLowerCase();
+		val = $scope.filterOb.parents.toLowerCase();
+		
+		if (!rel.updated)
+			name  = ($scope.editableRecordField && $scope.editableRecordField.displayValue) ? $scope.editableRecordField.displayValue.toLowerCase() : '';
+		else
+			name = (rel.related_item_name) ? rel.related_item_name.toLowerCase() : ''
+			
+		return (!!~name.indexOf(val) || !!~disp.indexOf(val) || !!~cls.indexOf(val) || !!~relName.indexOf(val));
 	}
 
 	function loadEditable() {
@@ -104,11 +157,22 @@
 				$scope.editableCol1 = $scope.editableColumns;
 			}
 		}
+		else {
+			$window.location.assign('/' + curPortalID);
+		}
+
+		//console.log($scope.editableRelationships);
 	}
 
 	function pullFromExisting(ob) {
 		$scope.selectedClass = ob.selectedClass;
+		$scope.selectedClassTable = ob.selectedClass.className;
 		$scope.editableSelected = ob.editableSelected;
+		if (!$scope.editableRecordField)
+			$scope.editableRecordField = {};
+
+		$scope.editableRecordField.displayValue = ob.editableSelected.displayName;
+		$scope.editableRecordField.value = ob.editableSelected.value;
 		loadEditable();
 	}
 
@@ -153,13 +217,13 @@
 			c.server.get({'action': 'loadClass', 'classSys': parms.newValue}).then(function(response) {
 				if (response.data) {
 					$scope.selectedClass = response.data.selectedClass;
+					$scope.selectedClassTable = $scope.selectedClass.className;
 					$scope.selectedClass.editorConfigSys = parms.newValue;
-					$scope.editableRecords = response.data.editableRecords || [];
+					$scope.editableRecordFieldQuery = response.data.editableRecords || '';
 					$scope.editableRecordField = {};
 					$scope.editableRecordField.displayValue = $scope.selectedClass.name;
 					$scope.editableRecordField.value = '';
 					$scope.editableRecordField.name = 'editable_selection';
-					$scope.editableRecordFieldQuery = 'sys_idIN' + $scope.editableRecords.join(',');
 				}
 			});
 		}
@@ -196,6 +260,7 @@
 			$scope.displayRelationshipPicker = parms.newValue != '';
 
 			$scope.newRelationshipCITable = parms.newValue;
+			$scope.newRelationshipCIQuery = 'sys_class_name=' + parms.newValue;
 			$scope.displayCIRelationshipPicker = parms.newValue != '';
 		}
 
@@ -217,10 +282,15 @@
 				if (previouslySelectedCI == parms.newValue)
 					return;
 
+				debugger;
 				c.server.get({'action': 'loadCI', 'ciSys': parms.newValue, 'thisClass': $scope.selectedClass}).then(function(response) {
 					if (response) {
 						if (response.data) {
 							$scope.editableSelected = response.data.editableSelected;
+
+							$scope.existingRecordsForCI = response.data.existingRecordsForCI;
+							//console.log($scope.existingRecordsForCI)
+
 							loadEditable();
 							previouslySelectedCI = response.data.ciSys;
 						}
@@ -233,7 +303,192 @@
 		}
 	});
 
+	$scope.updateThisRelationship = function() {
+		$scope.selectedRelationship.old_sys_id = $scope.selectedRelationship.sys_id;
+		$scope.selectedRelationship.old_related_item_sys = $scope.selectedClass.curSysID;
+		$scope.selectedRelationship.sys_id = $scope.newRelationshipCI.value;
+		$scope.selectedRelationship.related_item_sys = $scope.updatedRelationship.value;
+		$scope.selectedRelationship.displayValue = $scope.newRelationshipCI.displayValue;
+		$scope.selectedRelationship.classDisplay = $scope.newRelationshipClass.displayValue;
+		$scope.selectedRelationship.relName = $scope.newRelationshipType.displayValue;
+		$scope.selectedRelationship.old_related_item_name = $scope.editableRecordField.displayValue;
+		$scope.selectedRelationship.related_item_name = $scope.updatedRelationship.displayValue;
 
+		$scope.selectedRelationship.updated = true;
+
+		$scope.displayRelationshipPicker = false;
+		$scope.displayCIRelationshipPicker = false;
+		$scope.updatingRelationship = false;
+		$scope.updatingRelationshipAll = false;
+
+		$scope.closeModal();
+	};
+
+	$scope.openUpdateParent = function(rel) {
+		if (!rel || rel.added || rel.deleted)
+			return false;
+
+		$scope.newRelType = 'child';
+
+		$scope.parentChildLabel = 'Parent';
+		$scope.selectedRelationship = rel;
+
+		$scope.updatedRelationship.value = rel.related_item_sys || $scope.editableRecordField.value;
+		$scope.updatedRelationship.displayValue = rel.related_item_name || $scope.editableRecordField.displayValue;
+		$scope.newRelationshipCI.value = rel.sys_id;
+		$scope.newRelationshipCI.displayValue = rel.displayValue;
+		$scope.newRelationshipType.value = rel.relType;
+		$scope.newRelationshipType.displayValue = rel.relName;
+		$scope.newRelationshipClass.value = rel.className;
+		$scope.newRelationshipClass.displayValue = rel.classDisplay;
+		$scope.newRelationshipCITable = rel.className;
+		$scope.newRelationshipCIQuery = 'sys_class_name=' + rel.className;
+
+		var newRelQuery = [];
+		var x = 0, y = 0, maxL = $scope.selectedClass.availableRelationships.length, maxLY = 0;
+		for (x; x < maxL; x++) {
+			if ($scope.newRelType == $scope.selectedClass.availableRelationships[x].parentChild) {
+				maxLY = $scope.selectedClass.availableRelationships[x].classes.length;
+				var classMatch = false;
+				for (y; y < maxLY; y++) {
+					if ($scope.selectedClass.availableRelationships[x].classes[y].name == rel.className)
+						classMatch = true;
+				}
+				y = 0;
+				if (classMatch) {
+					//if ($scope.selectedClass.availableRelationships[x].classes.indexOf(parms.newValue) > -1) {
+					maxLY = $scope.selectedClass.availableRelationships[x].relationships.length;
+					for (y; y < maxLY; y++) {
+						if (newRelQuery.indexOf($scope.selectedClass.availableRelationships[x].relationships[y].sys_id) == -1)
+							newRelQuery.push($scope.selectedClass.availableRelationships[x].relationships[y].sys_id);
+					}
+				}
+			}
+		}
+
+		$scope.newRelTypeQuery = 'sys_idIN' + newRelQuery.join(',');
+
+		if (!rel.originalDisplayValue)
+			rel.originalDisplayValue = rel.displayValue;
+		if (!rel.originalRelName)
+			rel.originalRelName = rel.relName;
+		if (!rel.originalClassDisplay)
+			rel.originalClassDisplay = rel.classDisplay;
+
+		var childTableNames = [];
+		x = 0;
+		maxL = $scope.selectedClass.availableRelationships.length;
+		for (x; x < maxL; x++) {
+			if ($scope.selectedClass.availableRelationships[x].parentChild == 'child') {
+				y = 0;
+				maxLY = $scope.selectedClass.availableRelationships[x].classes.length;
+				for (y; y < maxLY; y++) {
+					childTableNames.push($scope.selectedClass.availableRelationships[x].classes[y].name);
+				}
+			}
+		}
+		$scope.newRelClassQuery = 'nameIN' + childTableNames.join(',');
+
+		$scope.displayRelationshipPicker = true;
+		$scope.displayCIRelationshipPicker = true;
+
+		$scope.updatingRelationshipAll = !!rel.url;
+		$scope.updatingRelationship = true;
+
+		$scope.modalInstance = $uibModal.open({
+			templateUrl: 'newRelationshipModal',
+			scope: $scope,
+			size: 'lg',
+			backdrop  : 'static',
+			keyboard  : false
+		});
+	};
+
+	$scope.openUpdateChild = function(rel) {
+		if (!rel || rel.added || rel.deleted)
+			return false;
+
+		$scope.newRelType = 'parent';
+
+		$scope.parentChildLabel = 'Child';
+		$scope.selectedRelationship = rel;
+
+		$scope.updatedRelationship.value = rel.related_item_sys || $scope.editableRecordField.value;
+		$scope.updatedRelationship.displayValue = rel.related_item_name || $scope.editableRecordField.displayValue;
+		$scope.newRelationshipCI.value = rel.sys_id;
+		$scope.newRelationshipCI.displayValue = rel.displayValue;
+		
+		//$scope.updatedRelationship.value = rel.sys_id;
+		//$scope.updatedRelationship.displayValue = rel.displayValue;
+		//$scope.newRelationshipCI.value = rel.related_item_sys || $scope.editableRecordField.value;
+		//$scope.newRelationshipCI.displayValue = rel.related_item_name || $scope.editableRecordField.displayValue;
+		
+		$scope.newRelationshipType.value = rel.relType;
+		$scope.newRelationshipType.displayValue = rel.relName;
+		$scope.newRelationshipClass.value = rel.className;
+		$scope.newRelationshipClass.displayValue = rel.classDisplay;
+		$scope.newRelationshipCITable = rel.className;
+		$scope.newRelationshipCIQuery = 'sys_class_name=' + rel.className;
+
+		var newRelQuery = [];
+		var x = 0, y = 0, maxL = $scope.selectedClass.availableRelationships.length, maxLY = 0;
+		for (x; x < maxL; x++) {
+			if ($scope.newRelType == $scope.selectedClass.availableRelationships[x].parentChild) {
+				maxLY = $scope.selectedClass.availableRelationships[x].classes.length;
+				var classMatch = false;
+				for (y; y < maxLY; y++) {
+					if ($scope.selectedClass.availableRelationships[x].classes[y].name == rel.className)
+						classMatch = true;
+				}
+				y = 0;
+				if (classMatch) {
+					//if ($scope.selectedClass.availableRelationships[x].classes.indexOf(parms.newValue) > -1) {
+					maxLY = $scope.selectedClass.availableRelationships[x].relationships.length;
+					for (y; y < maxLY; y++) {
+						if (newRelQuery.indexOf($scope.selectedClass.availableRelationships[x].relationships[y].sys_id) == -1)
+							newRelQuery.push($scope.selectedClass.availableRelationships[x].relationships[y].sys_id);
+					}
+				}
+			}
+		}
+
+		$scope.newRelTypeQuery = 'sys_idIN' + newRelQuery.join(',');
+		
+		var parentTableNames = [];
+		x = 0;
+		maxL = $scope.selectedClass.availableRelationships.length;
+		for (x; x < maxL; x++) {
+			if ($scope.selectedClass.availableRelationships[x].parentChild == 'parent') {
+				y = 0;
+				maxLY = $scope.selectedClass.availableRelationships[x].classes.length;
+				for (y; y < maxLY; y++) {
+					parentTableNames.push($scope.selectedClass.availableRelationships[x].classes[y].name);
+				}
+			}
+		}
+		$scope.newRelClassQuery = 'nameIN' + parentTableNames.join(',');
+
+		if (!rel.originalDisplayValue)
+			rel.originalDisplayValue = rel.displayValue;
+		if (!rel.originalRelName)
+			rel.originalRelName = rel.relName;
+		if (!rel.originalClassDisplay)
+			rel.originalClassDisplay = rel.classDisplay;
+
+		$scope.displayRelationshipPicker = true;
+		$scope.displayCIRelationshipPicker = true;
+
+		$scope.updatingRelationshipAll = !!rel.url;
+		$scope.updatingRelationship = true;
+
+		$scope.modalInstance = $uibModal.open({
+			templateUrl: 'newRelationshipModal',
+			scope: $scope,
+			size: 'lg',
+			backdrop  : 'static',
+			keyboard  : false
+		});
+	};
 
 	$scope.$on('fieldChanged.directive', function(evt, evtParm) {
 		for (var x = 0; x < $scope.editableColumns.length; x++) {
@@ -243,10 +498,10 @@
 			}
 		}
 	});
-	
+
 	$scope.updateDelete = function(ob) {
 		ob.deleted = true;
-	}
+	};
 
 	$scope.undoLast = function(ob) {
 		if (ob.added) {
@@ -259,16 +514,24 @@
 			ob.wasAddedThisSession = false;
 			ob.deleted = false;
 		}
-		else {
+		else if (!ob.updated) {
 			ob.deleted = false;
 			ob.added = false;
 			ob.wasAddedThisSession = false;
 		}
-	}
+		else {
+			ob.related_item_sys = $scope.editableRecordField.value;
+			ob.related_item_name =  $scope.editableRecordField.displayValue;
+			ob.displayValue = ob.originalDisplayValue;
+			ob.relName = ob.originalRelName;
+			ob.classDisplay = ob.originalClassDisplay;
+			ob.updated = false;
+		}
+	};
 
 	$scope.relIsEmpty = function(ob) {
-		return (!ob || !ob[0])
-	}
+		return (!ob || !ob[0]);
+	};
 
 	$scope.addParentRelationship = function() {
 		$scope.newRelType = 'parent';
@@ -289,15 +552,7 @@
 			backdrop  : 'static',
 			keyboard  : false
 		});
-
-		/*$scope.modalInstance.result.then(function(){
-			//Get triggers when modal is closed
-		}, function(){
-			$scope.newRelationshipClass.value = '';
-			$scope.newRelationshipCI.value = '';
-			$scope.newRelationshipType.value = '';
-		});*/
-	}
+	};
 
 	$scope.addChildRelationship = function() {
 		$scope.newRelType = 'child';
@@ -318,20 +573,11 @@
 			backdrop  : 'static',
 			keyboard  : false
 		});
-
-		/*$scope.modalInstance.result.then(function(){
-			//Get triggers when modal is closed
-		}, function(){
-			debugger;
-			$scope.newRelationshipClass.value = '';
-			$scope.newRelationshipCI.value = '';
-			$scope.newRelationshipType.value = '';
-		});*/
-	}
-
+	};
+	
 	$scope.checkIfNewRelFormReady = function() {
 		return (!($scope.newRelationshipCI.value && $scope.newRelationshipType.value));
-	}
+	};
 
 	$scope.closeModal = function() {
 		$scope.newRelationshipClass.value = '';
@@ -339,8 +585,9 @@
 		$scope.newRelationshipType.value = '';
 		$scope.displayRelationshipPicker = false;
 		$scope.displayCIRelationshipPicker = false;
+		$scope.updatingRelationship = false;
 		$scope.modalInstance.close();
-	}
+	};
 
 	$scope.addThisRelationship = function() {
 		var newRelOb = {}, tempArr = [];
@@ -353,16 +600,16 @@
 		newRelOb.added = true;
 		tempArr.push(newRelOb);
 		if ($scope.newRelType == 'child')
-			$scope.parentRelationships.push(tempArr);
+			$scope.parentRelationships.unshift(tempArr);
 		else
-			$scope.childRelationships.push(tempArr);
+			$scope.childRelationships.unshift(tempArr);
 
 		$scope.closeModal();
-	}
+	};
 
 	$scope.clearFormAndReset = function() {
 		$scope.selectedClass = false;
-		$scope.editableRecords = [];
+		//$scope.editableRecords = '';
 		$scope.editableRecordField = {};
 		$scope.editableRecordFieldQuery = '';
 
@@ -393,7 +640,7 @@
 
 		$scope.ciName = '';
 		previouslySelectedCI = '';
-	}
+	};
 
 	$rootScope.checkFormForChanges = function(checkRels) {
 		var tmpOb, tmpArr;
@@ -415,7 +662,7 @@
 				tmpArr = $scope.parentRelationships[z];
 				for (var zz in tmpArr) {
 					tmpOb = tmpArr[zz];
-					if (tmpOb.added || tmpOb.deleted) {
+					if (tmpOb.added || tmpOb.deleted || tmpOb.updated) {
 						return false;
 					}
 				}
@@ -424,7 +671,7 @@
 				tmpArr = $scope.childRelationships[a];
 				for (var aa in tmpArr) {
 					tmpOb = tmpArr[aa];
-					if (tmpOb.added || tmpOb.deleted) {
+					if (tmpOb.added || tmpOb.deleted || tmpOb.updated) {
 						return false;
 					}
 				}
@@ -432,7 +679,7 @@
 		}
 
 		return true; //if I'm done and haven't returned yet, I had no changes
-	}
+	};
 
 	$rootScope.flagChangesOnForm = function() {
 		$rootScope.showChanges = !$rootScope.showChanges;
@@ -454,14 +701,14 @@
 			}
 		})
 	}
-	
+
 	$scope.approve = function(approved) {
 		c.server.get({'action': 'approveChange', 'approved': approved, 'recordSys': $scope.existingRecord}).then(function(response) {
 			if (response && response.data) {
 				$timeout(function() {
 					if (curPortalID)
 						$window.location.assign('/' + curPortalID);
-					}, 3000);
+				}, 3000);
 			}
 		})
 	}
@@ -471,6 +718,16 @@
   height: calc(100vh - 125px);
   max-height: calc(100vh - 125px);
   overflow-y: auto;
+}
+
+.maxH25 {
+  max-height: 35vh;
+  overflow-y: auto;
+}
+
+.disabledLinkIcon {
+  color: $brand-danger;
+  cursor: not-allowed;
 }
 
 .bGWhite {
@@ -519,6 +776,14 @@ tr.addedRow {
   }
 }
 
+tr.updatedRow {
+  td {
+    color: $brand-warning;
+    text-decoration: bold;
+    background-color: lighten($brand-warning, 75%);
+  }
+}
+
 tbody.relBody {
   tr {
     td {
@@ -549,7 +814,7 @@ div.existingRecordsList {
 }
 
 div.changesVisibleDiv {
-  background-color: $brand-info;
+  //background-color: $brand-info;
   border-radius: 4px;
   margin-top: 8px;
   div.fieldSwitcher {
@@ -557,7 +822,8 @@ div.changesVisibleDiv {
     padding-right: 2px;
   }
   label, h4 {
-    color: #fff;
+    //color: #fff;
+    color: $brand-info;
     padding-left: 2px;
   }
   label {
@@ -611,7 +877,7 @@ dl.row {
         <docs/>
         <field_list/>
         <has_preview>false</has_preview>
-        <id>cmdb_editor</id>
+        <id>cmdb-editor</id>
         <internal>false</internal>
         <link/>
         <name>CMDB Editor</name>
@@ -624,6 +890,7 @@ dl.row {
 
 	var helper = new CMDBEditor();
 	data.cmdbConfigurationTableName = helper.getBaseConfigTable();
+	data.classFieldQuery = helper.getClassFieldQuery();
 	data.stagedChangeTable = helper.getStagedChangeTable();
 	data.pageID = $sp.getParameter('id') || $sp.getPortalRecord().getDisplayValue('homepage') || 'editor_home';
 	data.portalID = $sp.getPortalRecord().getValue('url_suffix');
@@ -638,7 +905,10 @@ dl.row {
 	data.submitter = (grExisting) ? grExisting.submitter.toString() : false;
 	data.submitterName = (grExisting) ? grExisting.submitter.getDisplayValue() : '';
 	data.currentUser = gs.getUserID();
-	data.isCurrentUserAnApprover = (grExisting) ? isCurrentUserAnApprover(data.currentUser, grExisting.sys_id.toString()) : false;
+	data.isCurrentUserAnApprover = helper._userIsAdmin || false;
+	data.isUserAdmin = helper._userIsAdmin;
+	if (!data.isCurrentUserAnApprover)
+		data.isCurrentUserAnApprover = (grExisting) ? isCurrentUserAnApprover(data.currentUser, grExisting.sys_id.toString()) : false;
 
 	if (input) {
 		if (input.action == 'loadClass' && input.classSys) {
@@ -647,7 +917,7 @@ dl.row {
 		}
 		if (input.action == 'loadCI' && input.ciSys) {
 			data.existingRecordsForCI = helper.getExistingRecordsForCI(input.ciSys);
-			data.editableSelected = helper.getEditableSelection(input.ciSys, input.thisClass)
+			data.editableSelected = helper.getEditableSelection(input.ciSys, input.thisClass);
 			data.ciSys = input.ciSys;
 		}
 		if (input.action == 'approveChange' && input.recordSys) {
@@ -749,14 +1019,14 @@ function isApproved(gr) {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2018-04-20 17:29:01</sys_created_on>
         <sys_id>b39e859adb611300ab89eb41ca9619ea</sys_id>
-        <sys_mod_count>356</sys_mod_count>
+        <sys_mod_count>501</sys_mod_count>
         <sys_name>CMDB Editor</sys_name>
         <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
         <sys_policy/>
         <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
         <sys_update_name>sp_widget_b39e859adb611300ab89eb41ca9619ea</sys_update_name>
-        <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2018-04-27 20:46:36</sys_updated_on>
+        <sys_updated_by>T13959</sys_updated_by>
+        <sys_updated_on>2018-12-19 05:22:33</sys_updated_on>
         <template><![CDATA[<div id="parentDiv" class="borderLeftRightPrimary bGWhite marginTop0" ng-class="{'heightFooter': !formDisabled || (committed && approved == 'requested' && isCurrentUserAnApprover), 'height100': formDisabled}">
   <div ng-if="!selectedClass" class="container">
     <div class="row">
@@ -770,7 +1040,7 @@ function isApproved(gr) {
                           table="cmdbConfigurationTableName"
                           display-field="'name'"
                           value-field="'sys_id'"
-                          search-fields="'ci_class'"
+                          search-fields="'name'"
                           default-query="classFieldQuery"
                           page-size="50">
         </sn-record-picker>
@@ -836,14 +1106,14 @@ function isApproved(gr) {
             <span ng-if="!approved || approved == 'not_requested'">${Not Requested}</span>            
           </dd>
         </dl>
-        <div class="existingRecordsList list-group" ng-if="!committed && existingRecordsForCI && (existingRecordsForCI.length > 1 || existingRecordsForCI[0].sys_id != existingRecord)">
+        <div class="existingRecordsList list-group" ng-if="!committed && existingRecordsForCI && (existingRecordsForCI.length > 1 || (existingRecordsForCI.length == 1 && existingRecordsForCI[0].sys_id != existingRecord))">
           <div class="text-center">
             <h3 class="display-1">
               ${Existing Staged Changes for this CI}
             </h3>
           </div>
-          <a href ng-href="{{returnURL(rec.sys_id)}}" ng-if="rec.sys_id != existingRecord" title="Requested on {{rec.submittedDate}}" class="list-group-item list-group-item-action" ng-repeat="rec in existingRecordsForCI | orderBy:submittedDate track by sys_id">
-           	${Requested by {{rec.submitter}}}
+          <a href ng-href="{{returnURL(rec.sys_id)}}" ng-if="rec.sys_id != existingRecord" title="Requested on {{rec.submittedDate}}" class="list-group-item list-group-item-action" ng-repeat="rec in existingRecordsForCI | orderBy:submittedDate track by rec.sys_id">
+            ${{{rec.state}} {{rec.submitter}} - {{rec.submittedDate}}}
           </a>
         </div>
       </div>
@@ -853,7 +1123,7 @@ function isApproved(gr) {
         <hr class="formDivider" ng-show="!ciName"/>
         <label for="editable_record_picker" class="fieldLabel" ng-show="!ciName">{{selectedClass.name}}</label>
         <sn-record-picker id="editable_record_picker" field="editableRecordField"
-                          table="selectedClass.className" ng-show="editableRecords && !ciName"
+                          table="selectedClass.className" ng-show="(editableRecordFieldQuery ||  userIsAdmin) && !ciName"
                           display-field="selectedClass.displayField"
                           value-field="'sys_id'"
                           search-fields="selectedClass.displayField"
@@ -861,7 +1131,7 @@ function isApproved(gr) {
                           page-size="50">
         </sn-record-picker>
       </div>
-      <div class="col-xs-12 col-sm-8" ng-show="!editableRecords && !ciName">
+      <div class="col-xs-12 col-sm-8" ng-show="!editableRecordFieldQuery && !userIsAdmin && !ciName">
         <h3 class="display-1">
           No records to update.
         </h3>
@@ -897,67 +1167,89 @@ function isApproved(gr) {
       </div>
     </div>
   </div>
-  <div class="container" ng-show="editableSelected">
-    <hr class="formDivider" ng-if="editableSelected.editableRelationships.parent[0] || editableSelected.editableRelationships.child[0]"/>
+  <div class="container" ng-show="editableSelected && (childRelationships.length > 0 || parentRelationships.length > 0)">
+    <hr class="formDivider"/>
     <div class="row">
-      <div class="col-xs-12" ng-if="editableSelected.editableRelationships.parent[0] || editableSelected.editableRelationships.child[0]">
-        <div class="col-xs-12 col-sm-6">
+      <div class="col-xs-12">
+        <div class="col-xs-12" ng-if="parentRelationships.length > 0" ng-class="{'col-xs-12': !childrenRelationships, 'col-xs-6': childrenRelationships}">
           <div class="text-center">
             <h3 class="display-1">
               ${Children of {{ciName}}}
             </h3>
             <hr />
-            <table class="table table-responsive table-striped">
-              <thead>
-                <tr>
-                  <th width="20px" ng-if="!formDisabled"></th>
-                  <th>Child</th>
-                  <th>Child Class</th>
-                  <th>Relationship</th>
-                </tr>
-              </thead>
-              <tbody ng-repeat="relFrame in parentRelationships" class="relBody">
-                <tr ng-repeat="rel in relFrame" ng-class="{'deletedRow': rel.deleted, 'addedRow': rel.added}">
-                  <td width="20px" ng-if="!rel.deleted && !rel.added && !formDisabled"><i class="fa fa-trash fa-lg" ng-click="updateDelete(rel)"></i></td>
-                  <td width="20px" ng-if="rel.deleted && !formDisabled"><i class="fa fa-undo fa-lg" ng-click="undoLast(rel)"></i></td>
-                  <td width="20px" ng-if="rel.added && !formDisabled"><i class="fa fa-minus-circle fa-lg" ng-click="undoLast(rel)"></i></td>
-                  <td>{{rel.displayValue}}</td>
-                  <td>{{rel.classDisplay}}</td>
-                  <td>{{rel.relName}}</td>
-                </tr>
-              </tbody>
-            </table>
-            <button class="btn btn-lg btn-success marginB10" ng-click="addChildRelationship()" ng-if="editableSelected.editableRelationships.parent[0] && !formDisabled">
+            <input type="text" class="form-control" ng-model="filterOb.parents"/>
+            <div class="maxH25">
+              <table class="table table-responsive table-striped">
+                <thead>
+                  <tr>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th>Parent</th>
+                    <th>Child</th>
+                    <th>Child Class</th>
+                    <th>Relationship</th>
+                  </tr>
+                </thead>
+                <tbody ng-repeat="relFrame in parentRelationships" class="relBody maxH25">
+                  <tr ng-repeat="rel in relFrame | filter:filterParents | orderBy: 'displayValue'" ng-class="{'deletedRow': rel.deleted, 'addedRow': rel.added, 'updatedRow': rel.updated}">
+                    <td width="20px" ng-if="!rel.deleted && !rel.added && !rel.updated && !formDisabled"><i class="fa fa-trash fa-lg" ng-click="updateDelete(rel)"></i></td>
+                    <td width="20px" ng-if="(rel.deleted || rel.updated) && !formDisabled"><i class="fa fa-undo fa-lg" ng-click="undoLast(rel)"></i></td>
+                    <td width="20px" ng-if="rel.added && !formDisabled"><i class="fa fa-minus-circle fa-lg" ng-click="undoLast(rel)"></i></td>
+                    <td width="20px"><i class="fa fa-link fa-lg" ng-click="openNew(rel)" ng-class="{'disabledLinkIcon': !rel.url || rel.updated || rel.deleted}"></i></td>
+                    <td width="20px"><i class="fa fa-cog fa-lg" ng-click="openUpdateParent(rel)" ng-class="{'disabledLinkIcon': rel.added || rel.deleted}"></i></td>
+                    <td ng-if="rel.updated && rel.related_item_name">{{rel.related_item_name}}</td>
+                    <td ng-if="rel.updated && !rel.related_item_name && editableRecordField.displayValue">{{editableRecordField.displayValue}}</td>
+                    <td ng-if="!rel.updated">{{editableRecordField.displayValue}}</td>
+                    <td>{{rel.displayValue}}</td>
+                    <td>{{rel.classDisplay}}</td>
+                    <td>{{rel.relName}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button class="btn btn-lg btn-success marginB10" ng-click="addChildRelationship()" ng-if="editableRelationships.parent[0] && !formDisabled">
               ${Add Child Relationship}
             </button>
           </div>
         </div>
-        <div class="col-xs-12 col-sm-6">
+       <div class="col-xs-12" ng-if="childRelationships.length > 0" ng-class="{'col-xs-12': !parentRelationships, 'col-xs-6': parentRelationships}">
           <div class="text-center">
             <h3 class="display-1">
               ${Parents of {{ciName}}}
             </h3>
             <hr />
-            <table class="table table-responsive table-striped">
-              <thead>
-                <tr>
-                  <th width="20px" ng-if="!formDisabled"></th>
-                  <th>Parent</th>
-                  <th>Parent Class</th>
-                  <th>Relationship</th>
-                </tr>
-              </thead>
-              <tbody ng-repeat="relFrame in childRelationships" class="relBody">
-                <tr ng-repeat="rel in relFrame" ng-class="{'deletedRow': rel.deleted, 'addedRow': rel.added}">
-                  <td width="20px" ng-if="!rel.deleted && !rel.added && !formDisabled"><i class="fa fa-trash fa-lg" ng-click="updateDelete(rel)"></i></td>
-                  <td width="20px" ng-if="rel.deleted && !formDisabled"><i class="fa fa-undo fa-lg" ng-click="undoLast(rel)"></i></td>
-                  <td width="20px" ng-if="rel.added && !formDisabled"><i class="fa fa-minus-circle fa-lg" ng-click="undoLast(rel)"></i></td>
-                  <td>{{rel.displayValue}}</td>
-                  <td>{{rel.classDisplay}}</td>
-                  <td>{{rel.relName}}</td>
-                </tr>
-              </tbody>
-            </table>
+            <input type="text" class="form-control" ng-model="filterOb.children"/>
+            <div class="maxH25">
+              <table class="table table-responsive table-striped">
+                <thead>
+                  <tr>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th width="20px" ng-if="!formDisabled"></th>
+                    <th>Child</th>
+                    <th>Parent</th>
+                    <th>Parent Class</th>
+                    <th>Relationship</th>
+                  </tr>
+                </thead>
+                <tbody ng-repeat="relFrame in childRelationships" class="relBody">
+                  <tr ng-repeat="rel in relFrame | filter:filterChildren | orderBy: 'displayValue'" ng-class="{'deletedRow': rel.deleted, 'addedRow': rel.added, 'updatedRow': rel.updated}">
+                    <td width="20px" ng-if="!rel.deleted && !rel.added && !rel.updated && !formDisabled"><i class="fa fa-trash fa-lg" ng-click="updateDelete(rel)"></i></td>
+                    <td width="20px" ng-if="(rel.deleted || rel.updated) && !formDisabled"><i class="fa fa-undo fa-lg" ng-click="undoLast(rel)"></i></td>
+                    <td width="20px" ng-if="rel.added && !formDisabled"><i class="fa fa-minus-circle fa-lg" ng-click="undoLast(rel)"></i></td>
+                    <td width="20px"><i class="fa fa-link fa-lg" ng-click="openNew(rel)" ng-class="{'disabledLinkIcon': !rel.url || rel.updated || rel.deleted}"></i></td>
+                    <td width="20px"><i class="fa fa-cog fa-lg" ng-click="openUpdateChild(rel)" ng-class="{'disabledLinkIcon': rel.added || rel.deleted}"></i></td>
+                    <td ng-if="rel.updated && rel.related_item_name">{{rel.related_item_name}}</td>
+                    <td ng-if="rel.updated && !rel.related_item_name && editableRecordField.displayValue">{{editableRecordField.displayValue}}</td>
+                    <td ng-if="!rel.updated">{{editableRecordField.displayValue}}</td>
+                    <td>{{rel.displayValue}}</td>
+                    <td>{{rel.classDisplay}}</td>
+                    <td>{{rel.relName}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <button class="btn btn-lg btn-success marginB10" ng-click="addParentRelationship()" ng-if="editableSelected.editableRelationships.child[0] && !formDisabled">
               ${Add Parent Relationship}
             </button>
@@ -975,9 +1267,9 @@ function isApproved(gr) {
         Save as Draft
       </button>
       <button class="btn btn-danger btn-lg pull-left" ng-click="clearFormAndReset()" ng-if="!committed && !drafted">
-        Restart
+        Cancel
       </button>
-      
+
       <button class="btn btn-success btn-lg pull-right" ng-if="committed && approved == 'requested' && isCurrentUserAnApprover" ng-click="approve(true)">
         Approve
       </button>

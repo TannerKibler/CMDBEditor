@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update>
+<?xml version="1.0" encoding="UTF-8"?><record_update>
     <sys_choice action="INSERT_OR_UPDATE" field="relationship_to_configuration_entry" table="x_60289_cmdb_edito_cmdb_editor_allowed_relationship" version="3">
         <sys_choice action="INSERT_OR_UPDATE">
             <dependent_value/>
@@ -45,7 +44,7 @@
             <sys_class_name>sys_choice_set</sys_class_name>
             <sys_created_by>admin</sys_created_by>
             <sys_created_on>2018-04-20 16:27:45</sys_created_on>
-            <sys_id>2e9041d2db611300ab89eb41ca961904</sys_id>
+            <sys_id>96bba9fadbc32300ce90a455ca961906</sys_id>
             <sys_mod_count>0</sys_mod_count>
             <sys_name>relationship_to_configuration_entry</sys_name>
             <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>

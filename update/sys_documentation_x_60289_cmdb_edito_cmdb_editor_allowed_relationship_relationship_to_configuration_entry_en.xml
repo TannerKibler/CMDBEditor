@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update>
+<?xml version="1.0" encoding="UTF-8"?><record_update>
     <sys_documentation element="relationship_to_configuration_entry" label="Relationship to Configuration Entry" language="en" table="x_60289_cmdb_edito_cmdb_editor_allowed_relationship">
         <sys_documentation action="INSERT_OR_UPDATE">
             <element>relationship_to_configuration_entry</element>

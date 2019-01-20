@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update>
+<?xml version="1.0" encoding="UTF-8"?><record_update>
     <sys_dictionary action="INSERT_OR_UPDATE" element="name" table="x_60289_cmdb_edito_cmdb_editor_configuration">
         <active>true</active>
         <array>false</array>
@@ -54,15 +53,15 @@
         <sys_class_name>sys_dictionary</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2018-04-20 18:04:40</sys_created_on>
-        <sys_id>d2b61152dba11300ab89eb41ca9619e5</sys_id>
+        <sys_id>a1d8021737f31300e3168cf6c3990e11</sys_id>
         <sys_mod_count>0</sys_mod_count>
         <sys_name>Name</sys_name>
         <sys_package display_value="CMDB Editor" source="x_60289_cmdb_edito">1693bcd6db211300ab89eb41ca96196c</sys_package>
         <sys_policy/>
         <sys_scope display_value="CMDB Editor">1693bcd6db211300ab89eb41ca96196c</sys_scope>
         <sys_update_name>sys_dictionary_x_60289_cmdb_edito_cmdb_editor_configuration_name</sys_update_name>
-        <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2018-04-20 18:04:40</sys_updated_on>
+        <sys_updated_by>system</sys_updated_by>
+        <sys_updated_on>2018-08-13 20:38:36</sys_updated_on>
         <table_reference>false</table_reference>
         <text_index>false</text_index>
         <unique>false</unique>

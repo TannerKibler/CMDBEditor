@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<record_update table="m2m_sp_ng_pro_sp_widget">
+<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_ng_pro_sp_widget">
     <m2m_sp_ng_pro_sp_widget action="INSERT_OR_UPDATE">
         <sp_angular_provider display_value="cmdbEditorFieldSwitch">f9b331cfdb211300ab89eb41ca9619d9</sp_angular_provider>
         <sp_widget display_value="CMDB Editor">b39e859adb611300ab89eb41ca9619ea</sp_widget>
